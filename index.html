@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Nepal MICS Survey</title>
+    <h2><i>Interactive Dashboard - Nepal MICS Survey 2014</i></h2>
+    <link type="text/css" href="dcnew/web/css/leaflet.css" rel="stylesheet"/>
+    <link type="text/css" href="dcnew/web/css/dc.css" rel="stylesheet"/>
+</head>
+
+<body>
+
+<div id="holder">
+    <a class="reset" href="javascript:dc.filterAll(group);dc.redrawAll(group);"><p><u><span style="color: blue">Reset All</span></u></p></a>
+    <div id="container1" style="width:100%; height:300px">
+        <div id="graph1" class="graph1" style="width:33%; height:300px;float:left"> Click to view by region</div>
+        <div id="graph2" class="graph2" style="width:33%; height:300px;float:left">Brush to view by Household Size</div>
+        <div id="graph3" class="graph3" style="width:33%; height:150px; float:left">Father Abroad?</div>
+        <div id="graph4" class="graph4" style="width:33%; height:150px; float:left">Mother Abroad?</div>
+    </div>
+    <div id="container2" style="width:100%; height:300px; margin-top: 15px">
+        <div id="graph5" class="graph5" style="width:33%; height:300px;float:left"> Click to view by wealth quintile</div>
+        <div id="graph6" class="graph6" style="width:33%; height:300px;float:left"> Click to view by type of child work (Age 1-17)</div>
+        <div id="graph7" class="graph7" style="width:33%; height:150px; float:left">Rural/Urban</div>
+        <div id="graph8" class="graph8" style="width:33%; height:150px; float:left">Gender of Head of Household</div>
+    </div>
+    <div id="container3" style="width:100%; height:300px; margin-top: 15px">
+        <div id="graph9" class="graph9" style="width:33%; height:300px;float:left"> Click to view by ethnic group</div>
+        <div id="graph10" class="graph10" style="width:17%; height:300px;float:left"> Attended School last year?</div>
+        <div id="graph11" class="graph11" style="width:16%; height:300px;float:left"> Gender</div>
+        <div id="graph12" class="graph12" style="width:33%; height:300px;float:left"> Education of Household Head</div>
+    </div>
+
+
+</div>
+
+<div  id = "footer" style="float:left">
+
+    <p>&copy Samik Adhikari || <u><span style="color: blue">adhikari.samik@gmail.com</span></u> || <a href="https://twitter.com/AdhikariSamik" class="twitter-follow-button" data-show-count="false">Follow @AdhikariSamik</a>
+        <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script> </p>
+    <p>Data accessed from UNICEF- NEPAL MICS Cluster Survey 2014.</p>
+
+</div>
+
+
+<script type="text/javascript" src="dcnew/web/js/d3.js"></script>
+<script type="text/javascript" src="dcnew/web/js/crossfilter.js"></script>
+<script type="text/javascript" src="dcnew/web/js/dc.js"></script>
+<script type="text/javascript" src="dcnew/web/js/leaflet.js"></script>
+
+
+<script type="text/javascript" src="dcnew/dc.leaflet.js"></script>
+<script type="text/javascript" src="dcnew/src/bubble-cloud.js"></script>
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.7.1.min.js"></script>
+
+<script>
+
+
+
+    var numberFormat = d3.format(".2f");
+    var group = "MICS";
+    var regionChart = dc.rowChart("#holder .graph1", group);
+    var hhsizeChart = dc.barChart("#holder .graph2", group);
+    var fatherChart = dc.rowChart("#holder .graph3", group);
+    var motherChart = dc.rowChart("#holder .graph4", group);
+    var quintileChart = dc.rowChart("#holder .graph5", group);
+    var stackChart = dc.barChart("#holder .graph6", group);
+    var rururbChart = dc.rowChart("#holder .graph7", group);
+    var hhgenderChart = dc.rowChart("#holder .graph8", group);
+    var ethnicChart= dc.pieChart("#holder .graph9", group);
+    var educationChart= dc.barChart("#holder .graph10", group);
+    var genderChart= dc.barChart("#holder .graph11", group);
+    var hheduChart= dc.rowChart("#holder .graph12", group);
+
+
+    d3.csv("data/viz.csv", function (csv) {
+
+        var data = crossfilter(csv);
+
+
+        var region = data.dimension(function (d) {
+            return d["HH7"];
+        });
+        var regiongroup = region.group().reduceCount();
+
+
+
+        var hhsize = data.dimension(function (d) {
+            return d["HH11"];
+        });
+        var hhsizegroup = hhsize.group();
+
+
+
+        var fatherabroad = data.dimension(function (d) {
+            return d["father_abroad"];
+        });
+        var fatherabroadgroup = fatherabroad.group();
+
+
+
+        var motherabroad = data.dimension(function (d) {
+            return d["mother_abroad"];
+        });
+        var motherabroadgroup = motherabroad.group();
+
+
+
+        var wealthquintile = data.dimension(function (d) {
+            return d["windex5"];
+        });
+        var wealthquintilegroup = wealthquintile.group();
+
+
+        var childage = data.dimension(function(d){
+            return d["SL9C"]
+        });
+
+        var businesssum = childage.group().reduceSum(function(d){return d["CL4"]});
+        var fetchsum = childage.group().reduceSum(function(d){return d["CL9"]});
+        var householdsum = childage.group().reduceSum(function(d){return d["CL12"]});
+
+        var childagegroup = childage.group().reduce(reduceAdd, reduceRemove, reduceInitial);
+
+        function reduceAdd(p, v) {
+            p.total += +v.CL4;
+            p.total2 += +v.CL9;
+            p.total3 += +v.CL12;
+            ++p.count;
+            p.average = d3.round((p.total / p.count), 2);
+            p.average2 = d3.round((p.total2 / p.count), 2);
+            p.average3 = d3.round((p.total3 / p.count), 2);
+            return p;
+        }
+
+        function reduceRemove(p, v) {
+            p.total -= +v.CL4;
+            p.total2 -= +v.CL9;
+            p.total3 -= +v.CL12;
+            --p.count;
+            p.average = d3.round((p.total / p.count), 2);
+            p.average2 = d3.round((p.total2 / p.count), 2);
+            p.average3 = d3.round((p.total3 / p.count), 2);
+            return p;
+        }
+
+        function reduceInitial(p, v) {
+            return {
+                total: 0,
+                total2: 0,
+                total3: 0,
+                count: 0,
+                average: 0,
+                average2: 0,
+                average3: 0
+            };
+        }
+
+
+
+        var rururb = data.dimension(function (d) {
+            return d["HH6"];
+        });
+        var rururbgroup = rururb.group();
+
+
+
+        var hhgender = data.dimension(function (d) {
+            return d["HHSEX"];
+        });
+        var hhgendergroup = hhgender.group();
+
+
+        var ethnicity = data.dimension(function (d) {
+            return d["HC1C"];
+        });
+        var ethnicitygroup = ethnicity.group();
+
+
+
+        var edu = data.dimension(function (d) {
+            return d["ed"];
+        });
+        var edugroup = edu.group();
+
+
+        var gender = data.dimension(function (d) {
+            return d["HL4"];
+        });
+        var gendergroup = gender.group();
+
+
+        var eduhhhead = data.dimension(function (d) {
+            return d["helevel"];
+        });
+        var eduhhheadgroup = eduhhhead.group();
+
+
+            regionChart
+                    .dimension(region)
+                    .group(regiongroup)
+                    .renderTitle(true)
+                    .colors(d3.scale.ordinal().range(["#a6cee3","#1f78b4","#b2df8a","#33a02c","#fb9a99"]))
+                    .colorAccessor(function (d) {
+                        return d.key.substr(1,2);
+                    })
+                    .label(function (d) {
+                        return d.key;
+                    })
+                    .title(function (d) {
+                        return d.value;
+                    })
+                    .elasticX(true)
+                    .xAxis()
+
+
+            hhsizeChart
+                    .margins({ top: 30, left: 40, right: 30, bottom: 30 })
+                    .dimension(hhsize)
+                    .group(hhsizegroup)
+                    .x(d3.scale.linear().domain([0, 40]))
+                    .xAxisLabel("Household Size")
+                    .yAxisLabel("Count")
+                    .elasticY(true);
+
+            fatherChart
+                    .margins({ top: 0, left: 30, right: 30, bottom: 90 })
+                    .dimension(fatherabroad)
+                    .group(fatherabroadgroup)
+                    .renderTitle(true)
+                    .label(function (d) {
+                        return d.key;
+                    })
+                    .title(function (d) {
+                        return d.value;
+                    })
+                    .elasticX(true)
+                    .xAxis().ticks(3);
+
+            motherChart
+                    .margins({ top: 0, left: 30, right: 30, bottom: 90 })
+                    .dimension(motherabroad)
+                    .group(motherabroadgroup)
+                    .renderTitle(true)
+                    .label(function (d) {
+                        return d.key;
+                    })
+                    .title(function (d) {
+                        return d.value;
+                    })
+                    .elasticX(true)
+                    .xAxis().ticks(3)
+
+            quintileChart
+                .margins({ top: 10, left: 30, right: 30, bottom: 90 })
+                .dimension(wealthquintile)
+                .group(wealthquintilegroup)
+                    .renderTitle(true)
+                    .colors(d3.scale.ordinal().range(["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"]))
+                .label(function (d) {
+                    return d.key;
+                })
+                .title(function (d) {
+                    return d.value;
+                })
+                .elasticX(true)
+                .xAxis().ticks(3)
+
+
+        stackChart
+                .margins({top: 20, right: 20, bottom: 30, left: 50})
+                .dimension(childage)
+                .group(childagegroup, "Farm/Business")
+                .valueAccessor(function (p) {
+
+                    return p.value.count > 0 ? p.value.average : 0;
+
+                })
+                .stack(childagegroup, "Water/Firewood")
+                .valueAccessor(function (p) {
+
+                    return p.value.count > 0 ? p.value.average2 : 0;
+
+                })
+                .stack(childagegroup, "Household Chores")
+                .valueAccessor(function (p) {
+
+                        return p.value.count > 0 ? p.value.average3 : 0;
+
+                })
+                .x(d3.scale.ordinal())
+                .xUnits(dc.units.ordinal)
+                .yAxisLabel("Average Hours Worked/Week")
+                .xAxisLabel("Age")
+                .elasticY(true)
+                .transitionDuration(500)
+                .xAxis().tickFormat()
+
+        stackChart
+        //.renderlet(colorRenderlet)
+                .renderHorizontalGridLines(true)
+                .legend(dc.legend().x(80).y(15).itemHeight(10).gap(2));
+
+
+        rururbChart
+                .margins({ top: 0, left: 30, right: 30, bottom: 90 })
+                .dimension(rururb)
+                .group(rururbgroup)
+                .renderTitle(true)
+                .label(function (d) {
+                    return d.key;
+                })
+                .title(function (d) {
+                    return d.value;
+                })
+                .elasticX(true)
+                .xAxis().ticks(3);
+
+        hhgenderChart
+                .margins({ top: 0, left: 30, right: 30, bottom: 90 })
+                .dimension(hhgender)
+                .group(hhgendergroup)
+                .renderTitle(true)
+                .label(function (d) {
+                    return d.key;
+                })
+                .title(function (d) {
+                    return d.value;
+                })
+                .elasticX(true)
+                .xAxis().ticks(3)
+
+        ethnicChart
+                .slicesCap(11)
+                .innerRadius(0)
+                .dimension(ethnicity)
+                .group(ethnicitygroup)
+                .legend(dc.legend().x(0).y(0).itemHeight(13).gap(5));
+
+        educationChart
+                .margins({top: 20, right: 20, bottom: 30, left: 50})
+                .x(d3.scale.ordinal())
+                .xUnits(dc.units.ordinal)
+                .brushOn(false)
+                .dimension(edu)
+                .group(edugroup)
+                .elasticY(true);
+
+
+        genderChart
+                .margins({top: 20, right: 20, bottom: 30, left: 50})
+                .x(d3.scale.ordinal())
+                .xUnits(dc.units.ordinal)
+                .brushOn(false)
+                .dimension(gender)
+                .group(gendergroup)
+                .elasticY(true);
+
+
+        hheduChart
+                .margins({ top: 0, left: 30, right: 30, bottom: 90 })
+                .dimension(eduhhhead)
+                .group(eduhhheadgroup)
+                .renderTitle(true)
+                .label(function (d) {
+                    return d.key;
+                })
+                .title(function (d) {
+                    return d.value;
+                })
+                .elasticX(true)
+                .xAxis().ticks(3)
+
+
+        regionChart.ordering(function (d) {
+            if(d.key == "Eastern Mountain") return 0;
+            else if(d.key == "Eastern Hill") return 1;
+            else if(d.key == "Eastern Terai") return 2;
+            else if(d.key == "Central Mountain") return 3;
+            else if(d.key == "Central Hill") return 4;
+            else if(d.key == "Central Terai") return 5;
+            else if(d.key == "Western Mountain") return 6;
+            else if(d.key == "Western  Hill") return 7;
+            else if(d.key == "Western  Terai") return 8;
+            else if(d.key == "MId-Western Mountain") return 9;
+            else if(d.key == "MId-Western Hill") return 10;
+            else if(d.key == "MId-WesternTerai") return 11;
+            else if(d.key == "Far-Western Mountain") return 12;
+            else if(d.key == "Far-Western Hill") return 13;
+            else if(d.key == "Far-WesternTerai") return 14;
+        })
+
+        quintileChart.ordering(function (d) {
+            if(d.key == "Poorest") return 1;
+            else if(d.key == "Second") return 2;
+            else if(d.key == "Middle") return 3;
+            else if(d.key == "Fourth") return 4;
+            else if(d.key == "Richest") return 5;
+        })
+
+        hheduChart.ordering(function (d) {
+            if(d.key == "None") return 1;
+            else if(d.key == "Primary") return 2;
+            else if(d.key == "Secondary") return 3;
+            else if(d.key == "Higher") return 4;
+            else if(d.key == "Missing/DK") return 5;
+        })
+
+
+        stackChart.ordering(function (d) {
+            if(d.key == 1) return 1;
+            else if(d.key == 2) return 2;
+            else if(d.key == 3) return 3;
+            else if(d.key == 4) return 4;
+            else if(d.key == 5) return 5;
+            else if(d.key == 6) return 6;
+            else if(d.key == 7) return 7;
+            else if(d.key == 8) return 8;
+            else if(d.key == 9) return 9;
+            else if(d.key == 10) return 10;
+            else if(d.key == 11) return 11;
+            else if(d.key == 12) return 12;
+            else if(d.key == 13) return 13;
+            else if(d.key == 14) return 14;
+            else if(d.key == 15) return 15;
+            else if(d.key == 16) return 16;
+            else return 17;
+
+        })
+
+            dc.renderAll(group);
+
+        function AddXAxis(chartToUpdate, displayText)
+        {
+            chartToUpdate.svg()
+                    .append("text")
+                    .attr("class", "x-axis-label")
+                    .attr("text-anchor", "middle")
+                    .attr("x", chartToUpdate.width()/2)
+                    .attr("y", chartToUpdate.height()-5)
+                    .text(displayText);
+        }
+
+
+        });
+
+
+
+</script>
+</body>
+</html>
+
